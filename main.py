@@ -98,6 +98,64 @@ def main():
     )
 
     compareCharts(birth_chart, current_chart, options)
+def calculate_combined_aspects(current, birth):
+    aspmatrix = [
+        [chart.Asp() for _ in range(birth.planets.PLANETS_NUM-1)]
+        for _ in range(current.planets.PLANETS_NUM-1)
+    ]
+
+    for i in range(current.planets.PLANETS_NUM-1):
+        for j in range(birth.planets.PLANETS_NUM-1):
+            if i != j:
+                k = i
+                l = j
+                if j > i:
+                    k = j
+                    l = i
+
+                # Check parallel-contraparallel
+                aspmatrix[k][l].parallel = Chart.NONE
+                decl1 = current.planets.planets[i].dataEqu[1]
+                decl2 = birth.planets.planets[j].dataEqu[1]
+                if (decl1 > 0.0 and decl2 > 0.0) or (decl1 < 0.0 and decl2 < 0.0):
+                    if ((decl1 > 0.0 and (decl1+current.options.orbisplanetspar[i][0]+current.options.orbisplanetspar[j][0] > decl2) and (decl1-(current.options.orbisplanetspar[i][0]+current.options.orbisplanetspar[j][0]) < decl2)) or (decl1 < 0.0 and (decl1+current.options.orbisplanetspar[i][0]+current.options.orbisplanetspar[j][0] > decl2) and (decl1-(current.options.orbisplanetspar[i][0]+current.options.orbisplanetspar[j][0]) < decl2))):
+                        aspmatrix[k][l].parallel = Chart.PARALLEL
+                else:
+                    if decl1 < 0.0:
+                        decl1 *= -1.0
+                    if decl2 < 0.0:
+                        decl2 *= -1.0
+                    if (decl1+current.options.orbisplanetspar[i][1]+current.options.orbisplanetspar[j][1] > decl2) and (decl1-(current.options.orbisplanetspar[i][1]+current.options.orbisplanetspar[j][1]) < decl2):
+                        aspmatrix[k][l].parallel = Chart.CONTRAPARALLEL
+
+                for a in range(Chart.ASPECT_NUM):
+                    # Check aspects
+                    val1 = birth.planets.planets[j].data[0] + current.options.orbis[j][a] + current.options.orbis[i][a]
+                    val2 = birth.planets.planets[j].data[0] - (current.options.orbis[j][a] + current.options.orbis[i][a])
+                    if (current.inorbsinister(val1, val2, current.planets.planets[i].data[0], a)):
+                        tmp = util.normalize(current.planets.planets[i].data[0] + Chart.Aspects[a])
+                        dif = math.fabs(tmp - birth.planets.planets[j].data[0])
+                        if aspmatrix[k][l].typ == Chart.NONE or (aspmatrix[k][l].typ != Chart.NONE and aspmatrix[k][l].dif > dif):
+                            aspmatrix[k][l].typ = a
+                            aspmatrix[k][l].aspdif = dif
+                            aspmatrix[k][l].appl = current.isApplPlanets(tmp, i, j)
+
+                            # Check Exact
+                            val1 = birth.planets.planets[j].data[0] + current.options.exact
+                            val2 = birth.planets.planets[j].data[0] - current.options.exact
+                            if (current.inorbsinister(val1, val2, current.planets.planets[i].data[0], a)):
+                                aspmatrix[k][l].exact = True
+                            else:
+                                aspmatrix[k][l].exact = False
+
+                dif = current.planets.planets[i].data[0] - birth.planets.planets[j].data[0]
+                if birth.planets.planets[j].data[0] > current.planets.planets[i].data[0]:
+                    dif = birth.planets.planets[j].data[0] - current.planets.planets[i].data[0]
+                if dif > 180.0:
+                    dif = 360.0 - dif
+                aspmatrix[k][l].dif = dif
+
+    return aspmatrix
 
 
 def drawAspectSymbols(chart, options):
@@ -136,13 +194,12 @@ def drawAspectSymbols(chart, options):
 def calculateTransits(birth_chart, current_chart, options):
     for i in range(planets.Planets.PLANETS_NUM - 1):
         for j in range(planets.Planets.PLANETS_NUM - 1):
-            birth_asp = birth_chart.aspmatrix[j][i]
-            current_asp = current_chart.aspmatrix[j][i]
+            combide = calculate_combined_aspects(birth_chart, current_chart)[j][i]
 
             birth_lon = birth_chart.planets.planets[i].data[planets.Planet.LONG]
             current_lon = current_chart.planets.planets[j].data[planets.Planet.LONG]
 
-            showasp = isShowAsp(current_asp.typ, birth_lon, current_lon, options, current_chart)
+            showasp = isShowAsp(combide.typ, birth_lon, current_lon, options, current_chart)
 
             if showasp:
                 aspect_names = {
@@ -154,7 +211,7 @@ def calculateTransits(birth_chart, current_chart, options):
                 }
                 if current_chart.planets.planets[j].name != "mean Node" and birth_chart.planets.planets[i].name != "mean Node":
                     print("------------------------------------------------------------------------------")
-                    print('{} {} {}'.format(birth_chart.planets.planets[i].name, aspect_names[current_asp.typ],
+                    print('{} {} {}'.format(birth_chart.planets.planets[i].name, aspect_names[combide.typ],
                                             current_chart.planets.planets[j].name))
 def compareCharts(birth_chart, current_chart, options):
     print("Transits:")

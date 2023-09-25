@@ -69,12 +69,12 @@ def main():
     )
 
     current_time = Time(
-        day=03,
-        month=12,
+        day=23,
+        month=11,
         year=2023,
-        hour=datetime.datetime.now().hour,
-        minute=datetime.datetime.now().minute,
-        second=datetime.datetime.now().second,
+        hour=14,
+        minute=53,
+        second=03,
         bc=False,
         cal=0,
         zt=0,
